@@ -17,7 +17,18 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ap-southeast-1
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_environment: ${{ vars.ENVIRONMENT }}
+      TF_VAR_vpc_cidr: ${{ vars.VPC_CIDR }}
+      TF_VAR_public_subnet_cidr: ${{ vars.PUBLIC_SUBNET_CIDR }}
+      TF_VAR_availability_zone: ${{ vars.AVAILABILITY_ZONE }}
+      TF_VAR_instance_type: ${{ vars.INSTANCE_TYPE }}
+      TF_VAR_key_pair_name: ${{ vars.KEY_PAIR_NAME }}
+      TF_VAR_ssh_allowed_cidr: ${{ vars.SSH_ALLOWED_CIDR }}
+      TF_VAR_nginx_allowed_cidr: ${{ vars.NGINX_ALLOWED_CIDR }}
+      TF_VAR_s3_bucket_name: ${{ vars.S3_BUCKET_NAME }}
 
     steps:
       - name: Checkout
