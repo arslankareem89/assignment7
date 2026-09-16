@@ -1,0 +1,10 @@
+---
+- name: Configure Assignment 07 EC2
+  hosts: web
+  become: true
+
+  roles:
+    - nginx
+    - docker
+    - docker-compose
+    - nginx-port

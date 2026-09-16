@@ -1,0 +1,9 @@
+---
+- name: Configure Nginx to listen on port 81
+  ansible.builtin.template:
+    src: default.conf.j2
+    dest: /etc/nginx/sites-available/default
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nginx
