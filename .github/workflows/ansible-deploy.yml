@@ -1,0 +1,94 @@
+name: Ansible Deploy
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Terraform Apply
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  ansible-deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.2
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false
+
+      - name: Get EC2 public IP
+        id: terraform-output
+        working-directory: terraform
+        run: |
+          echo "ec2_public_ip=$(terraform output -raw ec2_public_ip)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH private key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' '${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}' > ~/.ssh/assignment7-ec2
+          chmod 600 ~/.ssh/assignment7-ec2
+
+      - name: Generate Ansible inventory
+        env:
+          EC2_PUBLIC_IP: ${{ steps.terraform-output.outputs.ec2_public_ip }}
+        run: |
+          cat > ansible/inventory-ci.ini <<EOF2
+          [web]
+          assignment7-web ansible_host=${EC2_PUBLIC_IP} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/assignment7-ec2
+          EOF2
+
+          cat ansible/inventory-ci.ini
+
+      - name: Install Ansible
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install ansible
+
+      - name: Wait for SSH
+        env:
+          EC2_PUBLIC_IP: ${{ steps.terraform-output.outputs.ec2_public_ip }}
+        run: |
+          for i in {1..30}; do
+            if ssh \
+              -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=5 \
+              -i ~/.ssh/assignment7-ec2 \
+              ubuntu@"$EC2_PUBLIC_IP" \
+              'echo SSH ready'; then
+              exit 0
+            fi
+            echo "Waiting for SSH..."
+            sleep 10
+          done
+
+          echo "SSH connection failed"
+          exit 1
+
+      - name: Run Ansible
+        working-directory: ansible
+        run: |
+          ANSIBLE_HOST_KEY_CHECKING=False \
+          ansible-playbook \
+            -i inventory-ci.ini \
+            site.yml
